@@ -14,37 +14,44 @@ describe("EthPool", function () {
   async function deploy() {
     const [owner, addr1, addr2] = await ethers.getSigners();
 
+    const RewardToken = await ethers.getContractFactory("RewardToken");
+    const rewardToken = await RewardToken.deploy();
+    await rewardToken.deployed();
+    console.log("This is RewardToken address: ", rewardToken.address);
+
     const ETHPool = await ethers.getContractFactory("ETHPool")
-    const ethPool = await ETHPool.deploy();
+    const ethPool = await ETHPool.deploy(rewardToken.address);
 
     await ethPool.deployed();
     console.log("This is EthPool address: ", ethPool.address);
 
-    return {ethPool, owner, addr1, addr2}
+    return {ethPool, rewardToken, owner, addr1, addr2}
   }
 
   describe("ETHPool", async function () {
     it("ETHPool", async function(){
-      const {ethPool, owner, addr1, addr2} = await deploy()
+      const {ethPool,rewardToken, owner, addr1, addr2} = await deploy()
 
-      await owner.sendTransaction({ to: ethPool.address, value: ethers.utils.parseEther("1")});
+      await rewardToken.mint(addr1.address, ethers.utils.parseEther("1000"));
+      console.log("Team Member Reward Token: ", await rewardToken.balanceOf(addr1.address))
 
-      console.log("Before Deposit: ",await addr2.getBalance());
+      console.log("Before Deposit: ",await addr2.getBalance(), await rewardToken.balanceOf(addr2.address));
       
       await ethPool.addTeamMember(addr1.address);
   
       await ethPool.connect(addr2).depositFund({value: ethers.utils.parseEther("1.0")});
-      console.log("After Deposit: ", await addr2.getBalance());
+      console.log("After Deposit: ", await addr2.getBalance(), await rewardToken.balanceOf(addr2.address));
   
       expect(await ethPool.getDepositedFund(addr2.address)).to.equal(ethers.utils.parseEther("1.0"));
   
-      await ethPool.depositRewards();
+      await rewardToken.connect(addr1).approve(ethPool.address, await rewardToken.balanceOf(addr1.address))
+      await ethPool.connect(addr1).depositRewards();
   
       const reward = await ethPool.getReward(addr2.address);
-      console.log("Rewad Amount: ", reward);
+      console.log("Rewad Amount: ", reward, await rewardToken.balanceOf(ethPool.address));
   
       await ethPool.connect(addr2).withdraw();
-      console.log("After withdraw: ", await addr2.getBalance());
+      console.log("After withdraw: ", await addr2.getBalance(), await rewardToken.balanceOf(addr2.address));
     });
 
   });

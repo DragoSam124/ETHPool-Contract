@@ -2,6 +2,7 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "hardhat/console.sol";
 
 contract ETHPool is AccessControl {
@@ -11,6 +12,7 @@ contract ETHPool is AccessControl {
         uint256 amount;
         uint256 timestamp;
     }
+    IERC20 public _rewardToken;
     address[] private users;
     mapping(address => DepositeData) private _depositedEth;
     mapping(address => uint256) private _rewards;
@@ -20,9 +22,10 @@ contract ETHPool is AccessControl {
     uint256 public _stakingPeriod = 1 seconds;
 
     event Deposited(address user, uint256 amount);
-    event Withdraw(address user, uint256 amount);
+    event Withdraw(address user, uint256 ethAmount, uint256 rewardAmount);
 
-    constructor() {
+    constructor(IERC20 rewardToken) {
+        _rewardToken = rewardToken;
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(TEAM_ROLE, msg.sender);
     }
@@ -58,6 +61,7 @@ contract ETHPool is AccessControl {
             uint256 reward = rewardDays * rewardsRate;
 
             _rewards[user] += reward;
+            _rewardToken.transferFrom(msg.sender, address(this), reward);
         }
     }
 
@@ -76,12 +80,11 @@ contract ETHPool is AccessControl {
         _depositedEth[msg.sender].amount = 0;
         uint256 reward = _rewards[msg.sender];
         _rewards[msg.sender] = 0;
-        
-        uint256 valueAmount = deposit + reward;
-        
-        (bool success, ) = (msg.sender).call{value:valueAmount}("");
+                
+        (bool success, ) = (msg.sender).call{value:deposit}("");
+        _rewardToken.transfer(msg.sender, reward);
         require(success, "Transfer failed");
 
-        emit Withdraw(msg.sender, valueAmount);
+        emit Withdraw(msg.sender, deposit, reward);
     }
 }

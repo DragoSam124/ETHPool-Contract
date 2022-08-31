@@ -7,10 +7,17 @@
 const hre = require("hardhat");
 
 async function main() {
+  const RewardToken = await hre.others.getContractFactory("RewardToken");
+  const rewardToken = await RewardToken.deploy();
+
+  await rewardToken.deployed();
+
+  console.log('RewardToken address: ', rewardToken.address);
+
   const ETHPool = await hre.ethers.getContractFactory("ETHPool");
   const ethPool = await ETHPool.deploy();
 
-  await lock.deployed();
+  await ethPool.deployed();
 
   console.log('ETHPool address: ', ethPool.address);
 }
